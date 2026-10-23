@@ -1,0 +1,1484 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yeon Jung Choi — Product Designer</title>
+  <meta name="description" content="Product Designer Yeon Jung Choi 포트폴리오 — ORUM, Pingo, Walla">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --bg: #000;
+      --fg: #fff;
+      --muted: rgba(255, 255, 255, .5);
+      --pad-x: 40px;
+      --pad-y: 28px;
+      --ease: cubic-bezier(.22, 1, .36, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap;
+    }
+
+    .label { font-size: 13px; letter-spacing: -.01em; line-height: 1; }
+
+    /* ---------- WebGL 캔버스 ---------- */
+    .gl { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .gl canvas { display: block; width: 100%; height: 100%; }
+
+    /* ---------- 입력 레이어 (WebGL 모드에서는 hover·클릭을 3D 원통과의 교차로 판정) ---------- */
+    .stage {
+      position: fixed; inset: 0; z-index: 1;
+      overflow: hidden; touch-action: none;
+      cursor: grab; user-select: none; -webkit-user-select: none;
+    }
+    .stage.is-pointing { cursor: pointer; }
+    .stage.is-dragging { cursor: grabbing; }
+
+    /* WebGL을 쓸 수 없을 때만 보이는 평면 카드 */
+    .card {
+      display: none;
+      position: absolute; left: 0; top: 0;
+      border-radius: 20px;
+      overflow: hidden;
+      cursor: pointer;
+      will-change: transform;
+    }
+    .no-gl .card { display: block; }
+    .card canvas { display: block; width: 100%; height: 100%; }
+
+    /* ---------- 네 모서리 UI ---------- */
+    .ui {
+      position: fixed; inset: 0; z-index: 3;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: var(--pad-y) var(--pad-x);
+      pointer-events: none;
+    }
+    .ui__row { position: relative; display: flex; align-items: center; justify-content: space-between; }
+    .ui a, .ui button { pointer-events: auto; transition: opacity .3s ease; }
+    .ui a:hover, .ui button:hover { opacity: .6; }
+    .ui__brand b { font-weight: 600; }
+    .ui__brand span { color: var(--muted); }
+
+    .views { display: flex; gap: 6px; align-items: center; }
+    .views button[aria-pressed="false"] { opacity: .45; }
+    .views button[aria-pressed="false"]:hover { opacity: 1; }
+
+    .ui__now {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 10px; color: var(--muted);
+      white-space: nowrap;
+    }
+    .ui__now b { color: var(--fg); font-weight: 500; }
+
+    /* ---------- 오버레이 (Profile / Index / Project) ---------- */
+    .overlay {
+      position: fixed; inset: 0; z-index: 2;
+      display: grid; place-items: center;
+      padding: 96px 24px;
+      opacity: 0; visibility: hidden;
+      transition: opacity .6s var(--ease), visibility 0s linear .6s;
+    }
+    .overlay.is-open { opacity: 1; visibility: visible; transition: opacity .6s var(--ease); }
+    .overlay__inner {
+      width: 100%; max-width: 520px; text-align: center;
+      transform: translateY(16px); transition: transform .8s var(--ease);
+    }
+    .overlay.is-open .overlay__inner { transform: none; }
+
+    .overlay__lead { font-size: 17px; line-height: 1.6; letter-spacing: -.02em; word-break: keep-all; }
+    .overlay__sub { margin-top: 24px; color: var(--muted); line-height: 1.5; }
+    .overlay__links { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
+    .overlay__links a:hover { opacity: .6; }
+
+    /* ---------- 프로젝트 상세 패널 ---------- */
+    .detail { z-index: 5; padding: 20px; place-items: stretch; }
+    .detail__panel {
+      height: 100%;
+      overflow-y: auto; overscroll-behavior: contain;
+      display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px;
+      padding: 64px 120px 96px 64px;
+      border-radius: 20px;
+      background: #fff; color: #0a0a0a;
+      transform: translateY(56px);
+      transition: transform 1s var(--ease);
+    }
+    .detail.is-open .detail__panel { transform: none; }
+
+    .detail__info { position: sticky; top: 0; align-self: start; }
+    .detail__num { color: rgba(0, 0, 0, .4); }
+    .detail__title {
+      margin-top: 16px;
+      font-size: clamp(48px, 6vw, 96px); font-weight: 500; letter-spacing: -.05em; line-height: 1;
+    }
+    .detail__desc {
+      margin-top: 32px; max-width: 26em;
+      font-size: 21px; line-height: 1.5; letter-spacing: -.025em; word-break: keep-all;
+    }
+    .project__link {
+      display: inline-flex; margin-top: 32px; padding: 12px 20px;
+      border-radius: 999px; background: #0a0a0a; color: #fff;
+    }
+    .project__link[hidden] { display: none; }
+
+    .detail__close {
+      position: absolute; top: 44px; right: 44px; z-index: 1;
+      display: grid; place-items: center;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #0a0a0a; color: #fff;
+      transition: transform .4s var(--ease);
+    }
+    .detail__close:hover { transform: rotate(90deg); }
+    .detail__close:focus { outline: none; }
+    .detail__close:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+    /* 이미지가 아래에서 차례로 떠올라요 */
+    /* 대표 이미지 아래는 한 줄에 2장씩 — 짝수로 맞춰 배열 */
+    .detail__media { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+    .detail__media > * {
+      display: block; width: 100%; height: auto;
+      opacity: 0; transform: translateY(80px);
+      transition: opacity .8s var(--ease), transform 1.1s var(--ease);
+      transition-delay: calc(var(--i) * 90ms + 250ms);
+    }
+    .detail__media--web img { border-radius: 12px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .06); }
+    .detail__media--phone img { border-radius: 28px; }
+    .detail.is-open .detail__media > * { opacity: 1; transform: none; }
+
+    /* 대표 이미지(thumbnail): 프로젝트 색 위에 크게 */
+    .detail__hero {
+      grid-column: 1 / -1;
+      display: grid; place-items: center;
+      padding: 64px 40px;
+      border-radius: 20px;
+      background: var(--hero);
+    }
+    .detail__hero img { width: min(340px, 100%); box-shadow: 0 32px 64px rgba(0, 0, 0, .28); }
+    .detail__media--web .detail__hero { padding: 48px; }
+    .detail__media--web .detail__hero img { width: 100%; box-shadow: 0 24px 56px rgba(0, 10, 50, .35); }
+
+    .index { list-style: none; max-width: 640px; text-align: left; }
+    .index li + li { border-top: 1px solid rgba(255, 255, 255, .15); }
+    .index button {
+      width: 100%; display: grid; grid-template-columns: 40px 120px 1fr; gap: 12px; align-items: baseline;
+      padding: 20px 0; text-align: left; transition: opacity .3s ease;
+    }
+    .index:hover button { opacity: .4; }
+    .index button:hover, .index button:focus-visible { opacity: 1; }
+    .index__num { color: var(--muted); }
+    .index__name { font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
+    .index__desc { color: var(--muted); line-height: 1.5; }
+
+    .error {
+      position: fixed; left: 50%; top: 50%; z-index: 4; transform: translate(-50%, -50%);
+      max-width: 420px; padding: 0 24px; text-align: center; color: var(--muted); line-height: 1.6;
+    }
+
+    .file-note {
+      position: fixed; left: 50%; top: 64px; z-index: 4; transform: translateX(-50%);
+      padding: 10px 16px; border-radius: 999px;
+      background: #fff; color: #000; white-space: nowrap;
+    }
+
+    @media (max-width: 699px) {
+      :root { --pad-x: 16px; --pad-y: 18px; }
+      .ui { background: linear-gradient(#000 0, transparent 64px) top / 100% 64px no-repeat,
+                        linear-gradient(transparent 0, #000 64px) bottom / 100% 64px no-repeat; }
+      .ui__now { display: none; }
+      .index button { grid-template-columns: 32px 1fr; }
+      .index__desc { grid-column: 2; }
+      .detail { padding: 8px; }
+      .detail__panel { grid-template-columns: 1fr; gap: 32px; padding: 88px 20px 48px; border-radius: 16px; }
+      .detail__info { position: static; }
+      .detail__desc { font-size: 17px; margin-top: 20px; }
+      .detail__close { top: 24px; right: 24px; width: 44px; height: 44px; }
+      .detail__media { gap: 12px; }
+      .detail__media--phone img { border-radius: 18px; }
+      .detail__hero { padding: 32px 20px; border-radius: 14px; }
+      .detail__hero img { width: min(240px, 100%); }
+      .detail__media--web .detail__hero { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 검색엔진·스크린리더용 텍스트 -->
+  <div class="sr-only">
+    <h1>Yeon Jung Choi — Product Designer</h1>
+    <h2>Projects</h2>
+    <ul>
+      <li>ORUM — 클라이밍 초급자를 위한 훈련 서비스</li>
+      <li>Pingo — 운동 수준이 서로 다른 연인이 함께할 수 있는 커플 운동 서비스</li>
+      <li>Walla — 설문 폼 'Walla' 서비스 개선, 주관식 결과 확인 경험 개선</li>
+    </ul>
+  </div>
+
+  <div class="gl" aria-hidden="true"></div>
+  <main class="stage" aria-label="프로젝트 목록. 드래그하거나 스크롤해서 둘러보세요."></main>
+
+  <section class="overlay" id="profile" aria-label="Profile" aria-hidden="true" inert>
+    <div class="overlay__inner">
+      <p class="overlay__lead">
+        사용자의 자리에서 문제를 바라보고, 창의적인 방식으로 답을 찾고,
+        마지막 디테일까지 꼼꼼하게 다듬는<br>
+        Product Designer Yeon Jung Choi입니다.
+      </p>
+      <p class="overlay__sub label">UX Research · UI Design · Prototyping</p>
+      <div class="overlay__links label">
+        <a href="mailto:egdwjs@gmail.com">egdwjs@gmail.com</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="overlay" id="index" aria-label="Project index" aria-hidden="true" inert>
+    <ul class="overlay__inner index"></ul>
+  </section>
+
+  <section class="overlay detail" id="project" role="dialog" aria-modal="true" aria-labelledby="detail-title" aria-hidden="true" inert>
+    <button class="detail__close" type="button" aria-label="닫기">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 2l12 12M14 2 2 14" stroke="currentColor" stroke-width="2"/></svg>
+    </button>
+    <div class="detail__panel">
+      <div class="detail__info">
+        <p class="detail__num label"></p>
+        <h2 class="detail__title" id="detail-title"></h2>
+        <p class="detail__desc"></p>
+        <a class="project__link label" hidden>프로젝트 자세히 보기 →</a>
+      </div>
+      <div class="detail__media"></div>
+    </div>
+  </section>
+
+  <div class="ui">
+    <div class="ui__row">
+      <a class="label ui__brand" href="./"><b>Yeon Jung Choi</b> <span>Product Designer</span></a>
+      <button class="label" type="button" data-toggle="profile" aria-expanded="false">Profile</button>
+    </div>
+    <div class="ui__row">
+      <nav class="label views" aria-label="보기 방식">
+        <button type="button" data-view="work" aria-pressed="true">Work</button>
+        <span aria-hidden="true">/</span>
+        <button type="button" data-view="index" aria-pressed="false">Index</button>
+      </nav>
+      <p class="label ui__now" aria-live="polite"></p>
+      <a class="label" href="mailto:egdwjs@gmail.com">Contact</a>
+    </div>
+  </div>
+
+  <!-- 웹용으로 줄인 이미지 묶음 — Img 폴더를 바꾸면 '이미지 묶기.command'를 더블클릭해서 다시 만들어요 -->
+  <script src="assets.js"></script>
+  <script type="module">
+    // ============================================================
+    //  프로젝트 데이터 — 프로젝트가 늘어나면 여기에 추가하면 돼요
+    // ============================================================
+    const PROJECTS = [
+      {
+        id: 'orum',
+        title: 'ORUM',
+        desc: '클라이밍 초급자를 위한 훈련 서비스',
+        href: null, // 상세 페이지가 생기면 경로 입력 (예: 'projects/orum.html')
+        label: '#141414', arrow: '#fff', // 카드 안 제목·화살표 버튼 색
+        hero: '#e9e6e0',                  // 상세 화면 대표 이미지 배경
+        scene: () => orumScene,
+      },
+      {
+        id: 'pingo',
+        title: 'Pingo',
+        desc: '운동 수준이 서로 다른 연인이 함께할 수 있는 커플 운동 서비스',
+        href: null,
+        label: '#fff', arrow: '#5b3fd6',
+        hero: '#8f6cf7',
+        scene: () => pingoScene,
+      },
+      {
+        id: 'walla',
+        title: 'Walla',
+        desc: "설문 폼 'Walla' 서비스 개선 — 주관식 결과 확인 경험 개선",
+        href: null,
+        label: '#fff', arrow: '#1747c9',
+        hero: '#2f6bf5',
+        scene: () => wallaScene,
+      },
+    ];
+
+    const IMAGES = {
+      orum: [
+        'Img/ORUM/Thumbnail.png',
+        'Img/ORUM/2-2 암장 정보 · 첫 방문.png',
+        'Img/ORUM/4-1 되돌아보기 · 내 영상 추가 완료.png',
+        'Img/ORUM/가로 레이아웃.png',
+        'Img/ORUM/회원가입.png',
+      ],
+      pingo: [
+        'Img/Pingo/목적지 고르기 완료.png',
+        'Img/Pingo/레이스 완료.png',
+        'Img/Pingo/Thumbnail.png', // 가운데 맨 앞 — 대표 화면
+        'Img/Pingo/A1_달려_press.png',
+        'Img/Pingo/레이스 결과 – 4안 다듬기 (합산 지표 히어로 + 힌트 분리).png',
+      ],
+      walla: [
+        'Img/Walla/thumbnail.png', // 처음 맨 앞 창 — 대표 화면
+        'Img/Walla/그룹 카드 선택.png',
+        'Img/Walla/1 요약보기.png',
+      ],
+    };
+
+    const PHONE_RATIO = 812 / 375;   // 모바일 기본 화면
+    const WEB_RATIO = 900 / 1440;    // 웹 기본 화면
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // ============================================================
+    //  유틸
+    // ============================================================
+    const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const prog = (t, start, dur) => clamp((t - start) / dur);
+    const ease = t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const easeOut = t => 1 - Math.pow(1 - t, 4);
+    const easeIn = t => t * t * t;
+    const expoOut = t => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    const mod = (n, m) => ((n % m) + m) % m;
+
+    // assets.js에 묶어둔 이미지를 먼저 써요 — 그래야 파일을 더블클릭해서 열어도 WebGL이 동작해요
+    // (macOS 파일명은 한글 자모가 분리된 형태라 비교 전에 정규화해요)
+    const EMBEDDED = Object.fromEntries(
+      Object.entries(window.PORTFOLIO_IMAGES ?? {}).map(([path, data]) => [path.normalize('NFC'), data]),
+    );
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(src));
+        img.src = EMBEDDED[src.normalize('NFC')] ?? encodeURI(src);
+      });
+    }
+
+    // 원본(4배수 PNG)을 필요한 크기로 한 번만 줄여 둬서 매 프레임 그리기를 가볍게 해요
+    function prep(img, width, crop = { x: 0, y: 0, w: img.width, h: img.height }) {
+      const c = document.createElement('canvas');
+      c.width = Math.round(width);
+      c.height = Math.round(crop.h * width / crop.w);
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, c.width, c.height);
+      return c;
+    }
+
+    // ORUM 이미지는 폰 테두리가 포함되어 있어서 화면 부분만 잘라내요
+    function screenCrop(img) {
+      const inset = Math.max(0, (img.width - 1500) / 2);
+      return { x: inset, y: inset, w: img.width - inset * 2, h: img.height - inset * 2 };
+    }
+
+    // ---------- 세로 스크롤 스트립: 여러 화면을 이어 붙여 아래로 내려가며 보여줘요 ----------
+    function makeStrip(images, viewW, viewH, { hold = 1.1, speed = 1.2 } = {}) {
+      const list = [...images, images[0]]; // 마지막에 첫 화면을 복제해 끊김 없이 처음으로 돌아가요
+      const items = [];
+      let y = 0;
+      for (const img of list) {
+        const h = img.height * viewW / img.width;
+        items.push({ img, y, h });
+        y += h;
+      }
+      const stops = [];
+      images.forEach((_, i) => {
+        const it = items[i];
+        stops.push(it.y);
+        if (it.h > viewH + 2) stops.push(it.y + it.h - viewH); // 긴 화면은 아래 끝까지
+      });
+      stops.push(items[images.length].y);
+
+      const segs = [];
+      let total = 0;
+      for (let i = 0; i < stops.length - 1; i++) {
+        const dist = stops[i + 1] - stops[i];
+        const move = .7 + speed * dist / viewH;
+        segs.push({ from: stops[i], to: stops[i + 1], start: total, hold, move });
+        total += hold + move;
+      }
+      return { items, segs, total, viewW, viewH };
+    }
+
+    function stripOffset(strip, t) {
+      const lt = mod(t, strip.total);
+      for (const s of strip.segs) {
+        if (lt < s.start + s.hold + s.move) return lerp(s.from, s.to, ease(prog(lt, s.start + s.hold, s.move)));
+      }
+      return 0;
+    }
+
+    function drawStrip(ctx, strip, x, y, offset) {
+      for (const it of strip.items) {
+        const top = it.y - offset;
+        if (top > strip.viewH || top + it.h < 0) continue;
+        ctx.drawImage(it.img, x, y + top, strip.viewW, it.h);
+      }
+    }
+
+    // ---------- 디바이스 프레임 ----------
+    function drawPhone(ctx, x, y, w, h, content, dim = 0) {
+      const b = w * .035;
+      const r = w * .15;
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, .28)';
+      ctx.shadowBlur = w * .14;
+      ctx.shadowOffsetY = w * .06;
+      ctx.fillStyle = '#0e0e10';
+      ctx.beginPath();
+      ctx.roundRect(x - b, y - b, w + b * 2, h + b * 2, r + b);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      ctx.clip();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x, y, w, h);
+      content();
+      if (dim > 0) {
+        ctx.fillStyle = `rgba(28, 12, 72, ${dim})`;
+        ctx.fillRect(x, y, w, h);
+      }
+      ctx.restore();
+    }
+
+    function drawBrowser(ctx, x, y, w, viewH, img, offset, dim = 0, alpha = 1) {
+      const bar = w * .03;
+      const r = w * .014;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = 'rgba(0, 18, 60, .35)';
+      ctx.shadowBlur = w * .05;
+      ctx.shadowOffsetY = w * .02;
+      ctx.fillStyle = '#eef1f5';
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, bar + viewH, r);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+
+      ['#ff5f57', '#febc2e', '#28c840'].forEach((c, i) => {
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        ctx.arc(x + bar * .7 + i * bar * .55, y + bar / 2, bar * .16, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.roundRect(x + w * .36, y + bar * .22, w * .28, bar * .56, bar * .28);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.roundRect(x, y + bar, w, viewH, [0, 0, r, r]);
+      ctx.clip();
+      ctx.fillStyle = '#f6f7f9';
+      ctx.fillRect(x, y + bar, w, viewH);
+      ctx.drawImage(img, x, y + bar - offset, w, img.height * w / img.width);
+      if (dim > 0) {
+        ctx.fillStyle = `rgba(4, 22, 70, ${dim})`;
+        ctx.fillRect(x, y + bar, w, viewH);
+      }
+      ctx.restore();
+    }
+
+    // ============================================================
+    //  카드 장면 1 — ORUM: 5개 폰이 각자 아래로 스크롤
+    // ============================================================
+    const orumScene = {
+      w: 1600, h: 1000,
+      setup(imgs) {
+        const sw = 320;
+        const sh = sw * PHONE_RATIO;
+        const [thumb, info, video, land, signup] = imgs.map(img => prep(img, sw, screenCrop(img)));
+        this.sw = sw;
+        this.sh = sh;
+        this.cols = [
+          { cx: 0,    top: 170, strip: makeStrip([land, signup], sw, sh), delay: 1.8 },
+          { cx: 400,  top: 110, strip: makeStrip([info, video], sw, sh), delay: .6 },
+          { cx: 800,  top: 70, strip: makeStrip([thumb], sw, sh, { hold: 1.3, speed: 1 }), delay: 0 },
+          { cx: 1200, top: 110, strip: makeStrip([video, land], sw, sh), delay: 1.2 },
+          { cx: 1600, top: 170, strip: makeStrip([signup, info], sw, sh), delay: 2.4 },
+        ];
+      },
+      draw(ctx, t) {
+        const g = ctx.createLinearGradient(0, 0, 0, this.h);
+        g.addColorStop(0, '#efece6');
+        g.addColorStop(1, '#dcd8cf');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, this.w, this.h);
+
+        for (const col of this.cols) {
+          const x = col.cx - this.sw / 2;
+          const y = col.top + Math.sin(t * .8 + col.cx * .004) * 6;
+          const off = stripOffset(col.strip, t + col.delay);
+          drawPhone(ctx, x, y, this.sw, this.sh, () => drawStrip(ctx, col.strip, x, y, off));
+        }
+      },
+    };
+
+    // ============================================================
+    //  카드 장면 2 — Pingo: Jitter "Animated Mobile Screens" 모션
+    //  등장(겹쳐 쌓임) → 한 줄로 정렬 → 가로 패닝 → 위로 퇴장 → 반복
+    // ============================================================
+    const PINGO_PILE = [
+      { cx: 380,  cy: 360, s: .68, dim: .35, z: 0 },
+      { cx: 500,  cy: 600, s: .8,  dim: .12, z: 1 },
+      { cx: 700,  cy: 560, s: .95, dim: 0,   z: 2 }, // 썸네일 — 가장 크게, 맨 앞
+      { cx: 900,  cy: 600, s: .8,  dim: .12, z: 1 },
+      { cx: 1020, cy: 360, s: .68, dim: .35, z: 0 },
+    ];
+    const PINGO_PERIOD = 9.4;
+
+    const pingoScene = {
+      w: 1400, h: 1050,
+      setup(imgs) {
+        this.sw = 330;
+        this.sh = this.sw * PHONE_RATIO;
+        this.screens = imgs.map(img => prep(img, this.sw));
+      },
+      cycle(ctx, t) {
+        if (t < 0 || t > 10.2) return;
+        const pan = lerp(225, -225, ease(prog(t, 4.2, 4.4)));
+        const items = this.screens.map((img, i) => {
+          const pile = PINGO_PILE[i];
+          const eIn = easeOut(prog(t, i * .08, 1.3));
+          const toRow = ease(prog(t, 3 + i * .06, 1.3));
+          const eOut = easeIn(prog(t, 8.6 + i * .07, 1.1));
+          const rowX = 700 + (i - 2) * 380 + pan;
+          const float = Math.sin(t * 1.4 + i) * 7 * (1 - toRow);
+          return {
+            img,
+            cx: lerp(pile.cx, rowX, toRow),
+            cy: lerp(pile.cy + float, 480, toRow) + (1 - eIn) * 1000 - eOut * 1100,
+            s: lerp(pile.s, 1, toRow),
+            dim: lerp(pile.dim, 0, toRow),
+            z: lerp(pile.z, 3, toRow),
+            scroll: ease(prog(t, 4.6, 3.4)),
+          };
+        }).sort((a, b) => a.z - b.z);
+
+        for (const it of items) {
+          const w = this.sw * it.s;
+          const h = this.sh * it.s;
+          const x = it.cx - w / 2;
+          const y = it.cy - h / 2;
+          if (y > this.h || y + h < 0) continue;
+          const imgH = it.img.height * w / it.img.width;
+          const off = Math.max(0, imgH - h) * it.scroll; // 긴 화면은 아래로 스크롤
+          drawPhone(ctx, x, y, w, h, () => ctx.drawImage(it.img, x, y - off, w, imgH), it.dim);
+        }
+      },
+      draw(ctx, t) {
+        const g = ctx.createRadialGradient(this.w / 2, this.h * .45, 0, this.w / 2, this.h / 2, this.w * .75);
+        g.addColorStop(0, '#a58cff');
+        g.addColorStop(1, '#6b48ee');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, this.w, this.h);
+
+        const lt = mod(t, PINGO_PERIOD);
+        this.cycle(ctx, lt + PINGO_PERIOD); // 이전 사이클의 퇴장 꼬리
+        this.cycle(ctx, lt);
+      },
+    };
+
+    // ============================================================
+    //  카드 장면 3 — Walla: 1440×900 브라우저 3장이 덱처럼 순환
+    //  맨 앞 화면이 아래로 스크롤 → 뒤로 빠지고 다음 화면이 앞으로
+    // ============================================================
+    const WALLA_SLOTS = [
+      { y: 120, s: 1,   dim: 0,   a: 1 },
+      { y: 64,  s: .93, dim: .12, a: 1 },
+      { y: 14,  s: .86, dim: .24, a: 1 },
+    ];
+    const WALLA_HOLD = 4.4;
+    const WALLA_MOVE = 1.3;
+
+    const wallaScene = {
+      w: 1600, h: 1000,
+      setup(imgs) {
+        this.ww = 1180;
+        this.vh = this.ww * WEB_RATIO;
+        this.pages = imgs.map(img => prep(img, this.ww));
+      },
+      state(slot, f) {
+        // slot 0(맨 앞)은 아래로 빠졌다가 맨 뒤에서 다시 나타나요
+        if (slot === 0) {
+          if (f < .55) return { ...lerpState(WALLA_SLOTS[0], { y: 1080, s: 1, dim: 0, a: 1 }, easeIn(f / .55)), front: true };
+          const from = { ...WALLA_SLOTS[2], y: WALLA_SLOTS[2].y - 40, a: 0 };
+          return lerpState(from, WALLA_SLOTS[2], easeOut((f - .55) / .45));
+        }
+        return lerpState(WALLA_SLOTS[slot], WALLA_SLOTS[slot - 1], ease(f));
+      },
+      draw(ctx, t) {
+        const g = ctx.createLinearGradient(0, 0, this.w, this.h);
+        g.addColorStop(0, '#3b7bff');
+        g.addColorStop(1, '#1747c9');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, this.w, this.h);
+
+        const cycle = WALLA_HOLD + WALLA_MOVE;
+        const k = Math.floor(t / cycle);
+        const lt = t - k * cycle;
+        const f = prog(lt, WALLA_HOLD, WALLA_MOVE);
+        const n = this.pages.length;
+
+        const items = this.pages.map((img, i) => {
+          const slot = mod(i - k, n);
+          const st = f > 0 ? this.state(slot, f) : { ...WALLA_SLOTS[slot] };
+          const maxOff = Math.max(0, img.height - this.vh);
+          const off = slot === 0 ? maxOff * ease(prog(lt, .6, 3.2)) : 0;
+          const depth = st.front ? 1e4 : st.y; // 위에 있을수록 뒤쪽 → 먼저 그려요
+          return { img, st, off, depth };
+        }).sort((a, b) => a.depth - b.depth);
+
+        for (const { img, st, off } of items) {
+          const w = this.ww * st.s;
+          const vh = this.vh * st.s;
+          drawBrowser(ctx, (this.w - w) / 2, st.y, w, vh, img, off * st.s, st.dim, st.a);
+        }
+      },
+    };
+
+    // 카드 왼쪽 아래 제목 + 오른쪽 아래 화살표 버튼 (텍스처에 함께 그려서 3D로 같이 휘어요)
+    function drawLabel(ctx, w, h, p) {
+      const size = h * .046;
+      const pad = h * .05;
+      ctx.save();
+      ctx.font = `500 ${size}px Pretendard, sans-serif`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = p.label;
+      ctx.shadowColor = p.label === '#fff' ? 'rgba(0, 0, 0, .25)' : 'rgba(255, 255, 255, .4)';
+      ctx.shadowBlur = size * .4;
+      ctx.letterSpacing = `${-size * .03}px`;
+      ctx.fillText(p.title, pad, h - pad);
+      ctx.shadowColor = 'transparent';
+
+      const r = size * .72;
+      const cx = w - pad - r;
+      const cy = h - pad - size * .36;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = p.arrow;
+      ctx.lineWidth = r * .12;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const a = r * .38;
+      ctx.beginPath();
+      ctx.moveTo(cx - a, cy);
+      ctx.lineTo(cx + a, cy);
+      ctx.moveTo(cx + a * .2, cy - a * .8);
+      ctx.lineTo(cx + a, cy);
+      ctx.lineTo(cx + a * .2, cy + a * .8);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function lerpState(a, b, t) {
+      return { y: lerp(a.y, b.y, t), s: lerp(a.s, b.s, t), dim: lerp(a.dim, b.dim, t), a: lerp(a.a, b.a, t) };
+    }
+
+    // ============================================================
+    //  물결 리본 — 카드 줄이 S자로 앞뒤로 출렁이는 면 위에 놓여요
+    //  (왼쪽은 앞으로 다가오고 오른쪽은 깊게 물러나며, 화면 밖으로 갈수록 평평해져요)
+    // ============================================================
+    const RIBBON = {
+      fov: 50,        // 카메라 화각 — 클수록 원근감이 강해요
+      depth: .2,      // 물결 깊이 (화면 반폭 대비)
+      span: 1.15,     // 화면 안에 S자가 얼마나 촘촘히 들어가는지
+      shift: -.2,     // S자 위치 — 음수일수록 앞으로 튀어나온 부분이 왼쪽으로
+      bank: -.16,     // 곡선 기울기를 따라 카드가 살짝 비틀리는 정도
+      diag: .03,      // 줄 전체의 대각선 기울기
+      lean: -.12,     // 문짝처럼 한쪽으로 기우는 정도
+      twist: 1.8,     // 빠르게 넘길 때 양 끝이 비틀리는 정도(rad)
+      rearY: .1,      // 빠르게 넘길 때 왼쪽이 들리는 정도
+      rearZ: .2,      // 빠르게 넘길 때 왼쪽이 다가오는 정도
+      speedDepth: 1.1,// 빠르게 넘길 때 물결이 깊어지는 배율
+      dent: .1,       // hover 시 카드 가운데가 뒤로 들어가는 깊이 (카드 높이 대비)
+      mobileDepth: .18,
+    };
+    const glslFloat = v => (Number.isInteger(v) ? v.toFixed(1) : String(v));
+
+    const VERT = /* glsl */`
+      uniform vec4 uRect;      // 평면 레이아웃에서 카드 위치 (left, top, width, height) px
+      uniform vec2 uViewport;
+      uniform float uAxis;     // 0: 가로 리본, 1: 모바일 세로 목록
+      uniform float uSpeed;    // 스크롤 속도 0..1
+      uniform float uHover;    // 0..1 — 가운데가 뒤로 움푹 들어가요
+      varying vec2 vUv;
+      varying vec3 vWorld;
+      varying vec3 vNormal;
+
+      const float PI = 3.14159265;
+      const float SPAN = ${glslFloat(RIBBON.span)};
+      const float SHIFT = ${glslFloat(RIBBON.shift)};
+      const float BANK = ${glslFloat(RIBBON.bank)};
+      const float DIAG = ${glslFloat(RIBBON.diag)};
+      const float LEAN = ${glslFloat(RIBBON.lean)};
+      const float TWIST = ${glslFloat(RIBBON.twist)};
+      const float REAR_Y = ${glslFloat(RIBBON.rearY)};
+      const float REAR_Z = ${glslFloat(RIBBON.rearZ)};
+      const float DEPTH = ${glslFloat(RIBBON.depth)};
+      const float SPEED_DEPTH = ${glslFloat(RIBBON.speedDepth)};
+      const float DENT = ${glslFloat(RIBBON.dent)};
+      const float MOBILE_DEPTH = ${glslFloat(RIBBON.mobileDepth)};
+
+      // S자 물결: 사인 곡선에 가우시안을 곱해 화면 밖에서는 평평해져요
+      float wave(float q) { return sin(PI * q) * exp(-q * q); }
+      float waveSlope(float q) { return (PI * cos(PI * q) - 2.0 * q * sin(PI * q)) * exp(-q * q); }
+      // 가장자리에서 부드럽게 멈추는 기울기 (꺾이는 선이 생기지 않게)
+      float ramp(float s) { s = clamp(s, -1.0, 1.0); return s * (1.5 - 0.5 * s * s); }
+
+      vec2 flatAt(vec2 uv) {
+        return vec2(
+          uRect.x + uv.x * uRect.z - uViewport.x * 0.5,
+          uViewport.y * 0.5 - (uRect.y + (1.0 - uv.y) * uRect.w)
+        );
+      }
+
+      vec3 ribbon(vec2 uv) {
+        vec3 w = vec3(flatAt(uv), 0.0);
+
+        // hover: 가장자리는 그대로, 가운데만 뒤로
+        vec2 c = uv * 2.0 - 1.0;
+        w.z -= uHover * DENT * uRect.w * (1.0 - c.x * c.x) * (1.0 - c.y * c.y);
+
+        if (uAxis < 0.5) {
+          float W = uViewport.x * 0.5;
+          float s = w.x / W;
+          float q = s * SPAN + SHIFT;
+
+          float a = BANK * waveSlope(q) / PI + TWIST * uSpeed * smoothstep(0.3, 0.9, abs(s)) * sign(s);
+          w.yz = vec2(w.y * cos(a) - w.z * sin(a), w.y * sin(a) + w.z * cos(a));
+
+          w.z -= W * DEPTH * (1.0 + SPEED_DEPTH * uSpeed) * wave(q);
+          w.y += DIAG * w.x;
+
+          float rear = (1.0 - smoothstep(-1.0, 0.3, s)) * uSpeed * W;
+          w.y += REAR_Y * rear;
+          w.z += REAR_Z * rear + LEAN * W * ramp(s);
+        } else {
+          float H = uViewport.y * 0.5;
+          float q = w.y / H;
+          w.z -= H * MOBILE_DEPTH * (1.0 + uSpeed) * (1.0 - (1.0 - q * q) * exp(-q * q));
+        }
+        return w;
+      }
+
+      void main() {
+        vUv = uv;
+        vec3 p = ribbon(uv);
+        vec2 e = 3.0 / max(uRect.zw, vec2(1.0));
+        vNormal = normalize(cross(ribbon(uv + vec2(e.x, 0.0)) - p, ribbon(uv + vec2(0.0, e.y)) - p));
+        vWorld = p;
+        gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
+      }
+    `;
+
+    const FRAG = /* glsl */`
+      uniform sampler2D uTex;
+      uniform vec4 uRect;
+      uniform vec2 uViewport;
+      uniform vec3 uCam;
+      uniform float uRadius;
+      uniform float uVel;
+      uniform float uAlpha;
+      uniform float uDim;
+      uniform float uAxis;
+      varying vec2 vUv;
+      varying vec3 vWorld;
+      varying vec3 vNormal;
+
+      const vec3 LIGHT = vec3(-0.3369, 0.4211, 0.8422); // 왼쪽 위 앞에서 오는 빛 (정규화)
+
+      void main() {
+        vec2 size = uRect.zw;
+        vec2 dir = mix(vec2(1.0, 0.0), vec2(0.0, -1.0), uAxis);
+        vec2 shift = dir * uVel * 0.00018;
+
+        vec3 col = vec3(
+          texture2D(uTex, vUv + shift).r,
+          texture2D(uTex, vUv).g,
+          texture2D(uTex, vUv - shift).b
+        );
+
+        // 물결 골짜기는 살짝 어둡게, 휘어진 면에는 은은한 광택
+        vec3 n = normalize(vNormal);
+        float trough = clamp(-vWorld.z / (uViewport.x * 0.12), 0.0, 1.0);
+        col *= 1.0 - 0.35 * trough;
+        col *= 1.0 - 0.12 * (1.0 - (dot(n, LIGHT) * 0.5 + 0.5));
+        vec3 h = normalize(LIGHT + normalize(uCam - vWorld));
+        col += pow(max(dot(n, h), 0.0), 48.0) * 0.35;
+        col *= 1.0 - uDim * 0.9;
+
+        // 둥근 모서리 마스크
+        vec2 p = (vUv - 0.5) * size;
+        vec2 q = abs(p) - size * 0.5 + uRadius;
+        float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uRadius;
+        float mask = 1.0 - smoothstep(-0.75, 0.75, d);
+
+        gl_FragColor = vec4(col, mask * uAlpha);
+      }
+    `;
+
+    // 바닥 그리드
+    const FLOOR_VERT = /* glsl */`
+      varying vec3 vWorld;
+      void main() {
+        vec4 w = modelMatrix * vec4(position, 1.0);
+        vWorld = w.xyz;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }
+    `;
+
+    const FLOOR_FRAG = /* glsl */`
+      uniform float uOffset;
+      uniform float uCell;
+      uniform float uDim;
+      uniform float uAlpha;
+      uniform vec3 uCam;
+      varying vec3 vWorld;
+
+      void main() {
+        vec2 g = vec2(vWorld.x + uOffset, vWorld.z) / uCell;
+        vec2 f = abs(fract(g - 0.5) - 0.5) / fwidth(g);
+        float line = 1.0 - min(min(f.x, f.y), 1.0);
+        float fade = exp(-length(vWorld.xz - uCam.xz) * 0.00042);
+        gl_FragColor = vec4(vec3(1.0), line * 0.2 * fade * (1.0 - uDim) * uAlpha);
+      }
+    `;
+
+    // ============================================================
+    //  캐러셀
+    // ============================================================
+    const stage = document.querySelector('.stage');
+    const glHost = document.querySelector('.gl');
+    const nowLabel = document.querySelector('.ui__now');
+
+    const view = {
+      vw: 0, vh: 0, axis: 'x', sizes: [], offsets: [], gap: 0, cross: 0,
+      setSpan: 0, span: 0, wrapPad: 0, copies: 0, total: 0, radius: 20, start: 0,
+    };
+    const motion = { scroll: 0, target: 0, vel: 0, smoothVel: 0, dim: 0 };
+    const pointer = { x: 0, y: 0, inside: false };
+    let cards = [];
+    let hovered = null;
+    let gl = null;           // { THREE, renderer, scene, camera, geometry, shared, floor }
+    let textures = [];
+    let sceneCanvases = [];
+    let started = 0;
+    let overlayOpen = null;
+
+    function computeLayout() {
+      const vw = innerWidth;
+      const vh = innerHeight;
+      const axis = vw < 700 ? 'y' : 'x';
+      let sizes, gap, cross;
+
+      if (axis === 'x') {
+        const H = Math.round(clamp(vh * .48, 220, 600));
+        sizes = sceneCanvases.map(c => ({ w: Math.round(H * c.width / c.height), h: H }));
+        gap = Math.round(clamp(vw * .012, 10, 20));
+        cross = Math.round((vh - H) / 2);
+      } else {
+        const W = vw - 32;
+        sizes = sceneCanvases.map(c => ({ w: W, h: Math.round(W * c.height / c.width) }));
+        gap = 16;
+        cross = 16;
+      }
+
+      const along = s => (axis === 'x' ? s.w : s.h);
+      const offsets = [];
+      let acc = 0;
+      for (const s of sizes) {
+        offsets.push(acc);
+        acc += along(s) + gap;
+      }
+      const span = axis === 'x' ? vw : vh;
+      const wrapPad = Math.max(...sizes.map(along)) + gap;
+      // 앞으로 다가온 왼쪽 카드는 원근 때문에 화면 밖에서도 보일 수 있어 양옆에 한 장씩 여유를 둬요
+      const copies = Math.max(2, Math.ceil((span + wrapPad * 3) / acc));
+
+      Object.assign(view, {
+        vw, vh, axis, sizes, offsets, gap, cross, span, wrapPad, copies,
+        start: -wrapPad * 1.5,
+        setSpan: acc, total: acc * copies, radius: axis === 'x' ? 20 : 14,
+      });
+    }
+
+    function buildCards() {
+      for (const c of cards) {
+        c.el.remove();
+        if (c.mesh) gl.scene.remove(c.mesh);
+        c.mesh?.material.dispose();
+      }
+      cards = [];
+      hovered = null;
+
+      for (let copy = 0; copy < view.copies; copy++) {
+        PROJECTS.forEach((p, i) => {
+          const el = document.createElement('article');
+          el.className = 'card';
+          el.setAttribute('aria-hidden', 'true');
+          el.innerHTML = '<canvas></canvas>';
+          stage.appendChild(el);
+
+          const card = {
+            el, project: i, copy,
+            canvas: el.querySelector('canvas'),
+            base: copy * view.setSpan + view.offsets[i],
+            hover: { value: 0, from: 0, to: 0, t0: 0 },
+          };
+
+          if (gl) {
+            const { THREE, shared } = gl;
+            const material = new THREE.ShaderMaterial({
+              vertexShader: VERT,
+              fragmentShader: FRAG,
+              transparent: true,
+              uniforms: {
+                uTex: { value: textures[i] },
+                uRect: { value: new THREE.Vector4() },
+                uHover: { value: 0 },
+                uAlpha: { value: 0 },
+                uVel: shared.uVel,
+                uSpeed: shared.uSpeed,
+                uAxis: shared.uAxis,
+                uViewport: shared.uViewport,
+                uRadius: shared.uRadius,
+                uDim: shared.uDim,
+                uCam: shared.uCam,
+              },
+            });
+            card.mesh = new THREE.Mesh(gl.geometry, material);
+            card.mesh.frustumCulled = false;
+            gl.scene.add(card.mesh);
+          }
+          cards.push(card);
+        });
+      }
+    }
+
+    function onResize() {
+      const prevCopies = view.copies;
+      const prevSetSpan = view.setSpan;
+      const prevAxis = view.axis;
+      computeLayout();
+
+      if (gl) {
+        const { renderer, camera, shared, floor } = gl;
+        renderer.setSize(view.vw, view.vh);
+        camera.aspect = view.vw / view.vh;
+        camera.position.set(0, 0, (view.vh / 2) / Math.tan((camera.fov * Math.PI / 180) / 2));
+        camera.updateProjectionMatrix();
+        shared.uViewport.value.set(view.vw, view.vh);
+        shared.uAxis.value = view.axis === 'y' ? 1 : 0;
+        shared.uRadius.value = view.radius;
+        shared.uCam.value.copy(camera.position);
+
+        // 바닥은 카드 아래쪽, 가로 리본일 때만
+        const H = view.sizes[0].h;
+        floor.visible = view.axis === 'x';
+        floor.position.y = -(H / 2 + H * .2);
+        floor.material.uniforms.uCell.value = H * .32;
+        floor.material.uniforms.uCam.value.copy(camera.position);
+      }
+
+      if (view.copies !== prevCopies || view.setSpan !== prevSetSpan || view.axis !== prevAxis) {
+        // 비율을 유지하도록 스크롤 위치를 보정해요
+        if (prevSetSpan) {
+          const r = view.setSpan / prevSetSpan;
+          motion.scroll *= r;
+          motion.target *= r;
+        }
+        buildCards();
+      }
+    }
+
+    // ---------- 마우스 위치 → 리본 위 카드 찾기 ----------
+    // 셰이더와 같은 식으로 카드 위 점들을 화면에 투영해 두고, 그 격자 안에 마우스가 있는지 봐요
+    const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+
+    function ribbonPoint(card, u, v, speed) {
+      const r = card.rect;
+      let x = r.left + u * r.w - view.vw / 2;
+      let y = view.vh / 2 - (r.top + (1 - v) * r.h);
+      let z = -card.hover.value * RIBBON.dent * r.h * (1 - (u * 2 - 1) ** 2) * (1 - (v * 2 - 1) ** 2);
+
+      if (view.axis === 'x') {
+        const W = view.vw / 2;
+        const s = x / W;
+        const q = s * RIBBON.span + RIBBON.shift;
+        const g = Math.exp(-q * q);
+        const slope = (Math.PI * Math.cos(Math.PI * q) - 2 * q * Math.sin(Math.PI * q)) * g;
+        const a = RIBBON.bank * slope / Math.PI + RIBBON.twist * speed * smooth(.3, .9, Math.abs(s)) * Math.sign(s);
+        [y, z] = [y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+        z -= W * RIBBON.depth * (1 + RIBBON.speedDepth * speed) * Math.sin(Math.PI * q) * g;
+        y += RIBBON.diag * x;
+        const rear = (1 - smooth(-1, .3, s)) * speed * W;
+        const k = clamp(s, -1, 1);
+        y += RIBBON.rearY * rear;
+        z += RIBBON.rearZ * rear + RIBBON.lean * W * k * (1.5 - .5 * k * k);
+      } else {
+        const H = view.vh / 2;
+        const q = y / H;
+        z -= H * RIBBON.mobileDepth * (1 + speed) * (1 - (1 - q * q) * Math.exp(-q * q));
+      }
+
+      // 원근 투영 (카메라는 z축 위에서 정면을 봐요)
+      const camZ = gl.camera.position.z;
+      const k = camZ / (camZ - z);
+      return [view.vw / 2 + x * k, view.vh / 2 - y * k];
+    }
+
+    function pickCard(clientX, clientY) {
+      if (!gl) return null;
+      const speed = gl.shared.uSpeed.value;
+      const NU = 8, NV = 4;
+      for (const card of cards) {
+        if (!card.onScreen || !card.rect) continue;
+        const pts = [];
+        for (let j = 0; j <= NV; j++) {
+          for (let i = 0; i <= NU; i++) pts.push(ribbonPoint(card, i / NU, j / NV, speed));
+        }
+        for (let j = 0; j < NV; j++) {
+          for (let i = 0; i < NU; i++) {
+            const p00 = pts[j * (NU + 1) + i], p10 = pts[j * (NU + 1) + i + 1];
+            const p01 = pts[(j + 1) * (NU + 1) + i], p11 = pts[(j + 1) * (NU + 1) + i + 1];
+            if (inTriangle(clientX, clientY, p00, p10, p11) || inTriangle(clientX, clientY, p00, p11, p01)) {
+              return { card };
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function inTriangle(px, py, a, b, c) {
+      const d1 = (px - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (py - b[1]);
+      const d2 = (px - c[0]) * (b[1] - c[1]) - (b[0] - c[0]) * (py - c[1]);
+      const d3 = (px - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (py - a[1]);
+      const neg = d1 < 0 || d2 < 0 || d3 < 0;
+      const pos = d1 > 0 || d2 > 0 || d3 > 0;
+      return !(neg && pos);
+    }
+
+    // ---------- 입력: 휠 / 드래그 / 키보드 ----------
+    const drag = { active: false, moved: false, start: 0, startTarget: 0, last: 0, lastT: 0, v: 0, id: null };
+    const pointerPos = e => (view.axis === 'x' ? e.clientX : e.clientY);
+
+    addEventListener('wheel', e => {
+      if (overlayOpen) return;
+      e.preventDefault();
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      motion.target -= d * (e.deltaMode === 1 ? 24 : 1) * .9;
+    }, { passive: false });
+
+    stage.addEventListener('pointerdown', e => {
+      if (overlayOpen || e.button !== 0) return;
+      drag.active = true;
+      drag.moved = false;
+      drag.id = e.pointerId;
+      drag.start = drag.last = pointerPos(e);
+      drag.lastT = performance.now();
+      drag.startTarget = motion.target;
+      drag.v = 0;
+    });
+
+    addEventListener('pointermove', e => {
+      if (e.pointerType === 'mouse') {
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+        pointer.inside = true;
+      }
+      if (!drag.active || e.pointerId !== drag.id) return;
+      const p = pointerPos(e);
+      if (!drag.moved && Math.abs(p - drag.start) > 6) {
+        drag.moved = true;
+        stage.classList.add('is-dragging');
+        stage.setPointerCapture(e.pointerId);
+      }
+      const now = performance.now();
+      const dt = Math.max(1, now - drag.lastT);
+      drag.v = lerp(drag.v, (p - drag.last) / dt, .5);
+      drag.last = p;
+      drag.lastT = now;
+      motion.target = drag.startTarget + (p - drag.start) * 1.15;
+    });
+    document.addEventListener('pointerleave', () => { pointer.inside = false; });
+
+    const endDrag = e => {
+      if (!drag.active || e.pointerId !== drag.id) return;
+      drag.active = false;
+      stage.classList.remove('is-dragging');
+      if (drag.moved) motion.target += drag.v * 260; // 놓을 때 관성
+      // click 이벤트가 drag.moved를 확인한 뒤에 초기화
+      setTimeout(() => { drag.moved = false; }, 0);
+    };
+    addEventListener('pointerup', endDrag);
+    addEventListener('pointercancel', endDrag);
+
+    stage.addEventListener('click', e => {
+      if (drag.moved) return;
+      const card = gl
+        ? pickCard(e.clientX, e.clientY)?.card
+        : cards.find(c => c.el === e.target.closest('.card'));
+      if (card) openProject(card.project);
+    });
+
+    addEventListener('keydown', e => {
+      if (e.key === 'Escape') return closeOverlay();
+      if (overlayOpen) return;
+      const step = view.setSpan / PROJECTS.length;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') motion.target -= step;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') motion.target += step;
+    });
+
+    // ---------- 오버레이 ----------
+    const overlays = {
+      profile: document.getElementById('profile'),
+      index: document.getElementById('index'),
+      project: document.getElementById('project'),
+    };
+    const profileBtn = document.querySelector('[data-toggle="profile"]');
+    const viewBtns = document.querySelectorAll('[data-view]');
+
+    function openOverlay(name) {
+      if (overlayOpen === name) return closeOverlay();
+      closeOverlay(true);
+      overlayOpen = name;
+      const el = overlays[name];
+      el.classList.add('is-open');
+      el.removeAttribute('inert');
+      el.setAttribute('aria-hidden', 'false');
+      stage.setAttribute('inert', '');
+      profileBtn.setAttribute('aria-expanded', String(name === 'profile'));
+      viewBtns.forEach(b => b.setAttribute('aria-pressed', String((b.dataset.view === 'index') === (name === 'index'))));
+    }
+
+    function closeOverlay(silent) {
+      if (!overlayOpen) return;
+      const el = overlays[overlayOpen];
+      el.classList.remove('is-open');
+      el.setAttribute('inert', '');
+      el.setAttribute('aria-hidden', 'true');
+      overlayOpen = null;
+      if (silent === true) return;
+      stage.removeAttribute('inert');
+      profileBtn.setAttribute('aria-expanded', 'false');
+      viewBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === 'work')));
+    }
+
+    function openProject(i) {
+      const p = PROJECTS[i];
+      const el = overlays.project;
+      el.querySelector('.detail__num').textContent = `${String(i + 1).padStart(2, '0')} / ${String(PROJECTS.length).padStart(2, '0')}`;
+      el.querySelector('.detail__title').textContent = p.title;
+      el.querySelector('.detail__desc').textContent = p.desc;
+      const link = el.querySelector('.project__link');
+      link.hidden = !p.href;
+      if (p.href) link.href = p.href;
+
+      // 폴더의 이미지를 썸네일부터 순서대로 — 상세 화면은 선명하게 원본을 써요
+      const media = el.querySelector('.detail__media');
+      const isWeb = p.id === 'walla';
+      media.className = `detail__media detail__media--${isWeb ? 'web' : 'phone'}`;
+      media.replaceChildren();
+      const shots = [...IMAGES[p.id]].sort((a, b) => /thumbnail/i.test(b) - /thumbnail/i.test(a));
+      shots.forEach((src, n) => {
+        const img = new Image();
+        img.src = encodeURI(src);
+        img.alt = `${p.title} — ${src.split('/').pop().replace(/\.\w+$/, '')}`;
+        img.decoding = 'async';
+        img.loading = n < 4 ? 'eager' : 'lazy';
+
+        // thumbnail은 프로젝트 색 배경 위에 크게 — 가장 먼저 눈에 들어오게
+        let item = img;
+        if (/thumbnail/i.test(src)) {
+          item = document.createElement('figure');
+          item.className = 'detail__hero';
+          item.style.setProperty('--hero', p.hero);
+          item.appendChild(img);
+        }
+        item.style.setProperty('--i', n);
+        media.appendChild(item);
+      });
+      el.querySelector('.detail__panel').scrollTop = 0;
+      void media.offsetHeight; // 새 이미지의 시작 상태를 먼저 계산해야 떠오르는 애니메이션이 재생돼요
+
+      openOverlay('project');
+      el.querySelector('.detail__close').focus({ preventScroll: true });
+    }
+
+    function scrollToProject(i) {
+      let best = null;
+      for (const c of cards) {
+        if (c.project !== i) continue;
+        const d = view.span / 2 - (c.pos + c.along / 2);
+        if (best === null || Math.abs(d) < Math.abs(best)) best = d;
+      }
+      if (best !== null) motion.target += best;
+    }
+
+    profileBtn.addEventListener('click', () => openOverlay('profile'));
+    viewBtns.forEach(b => b.addEventListener('click', () => (b.dataset.view === 'index' ? openOverlay('index') : closeOverlay())));
+    Object.values(overlays).forEach(el => el.addEventListener('click', e => {
+      // 상세 패널은 바깥 여백이나 닫기 버튼을 눌렀을 때만 닫혀요
+      const close = el === overlays.project
+        ? e.target === el || e.target.closest('.detail__close')
+        : !e.target.closest('a, button');
+      if (close) closeOverlay();
+    }));
+
+    const indexList = overlays.index.querySelector('.index');
+    PROJECTS.forEach((p, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <button type="button">
+          <span class="index__num label">${String(i + 1).padStart(2, '0')}</span>
+          <span class="index__name">${p.title}</span>
+          <span class="index__desc">${p.desc}</span>
+        </button>`;
+      li.querySelector('button').addEventListener('click', () => {
+        closeOverlay();
+        scrollToProject(i);
+      });
+      indexList.appendChild(li);
+    });
+
+    // ---------- 매 프레임 ----------
+    let lastFrame = performance.now();
+
+    function frame(now) {
+      const dt = Math.min(64, now - lastFrame) / 16.667; // 60fps 기준 1
+      lastFrame = now;
+      const elapsed = (now - started) / 1000;
+
+      // 스크롤 관성
+      const prev = motion.scroll;
+      motion.scroll = lerp(motion.scroll, motion.target, 1 - Math.pow(1 - (reduceMotion ? .3 : .085), dt));
+      motion.vel = clamp((motion.scroll - prev) / dt, -45, 45);
+      motion.smoothVel = lerp(motion.smoothVel, reduceMotion ? 0 : motion.vel, 1 - Math.pow(.8, dt));
+      motion.dim = lerp(motion.dim, overlayOpen ? 1 : 0, 1 - Math.pow(.88, dt));
+
+      const { axis, sizes, cross, total, span, start } = view;
+      // 스크롤 속도(0..1) — 빠를수록 물결이 깊어지고 양 끝이 비틀려요
+      if (gl) gl.shared.uSpeed.value = Math.min(1, Math.abs(motion.smoothVel) / 40);
+
+      // 1) 카드 위치
+      const visible = new Set();
+      let nearest = null;
+      for (const c of cards) {
+        const s = sizes[c.project];
+        const along = axis === 'x' ? s.w : s.h;
+        const pos = mod(c.base + motion.scroll - start, total) + start;
+        const left = axis === 'x' ? pos : cross;
+        const top = axis === 'x' ? cross : pos;
+        const center = pos + along / 2 - span / 2;
+        c.pos = pos;
+        c.along = along;
+        c.rect = { left, top, w: s.w, h: s.h };
+        c.onScreen = gl
+          ? pos + along > -along * .6 && pos < span + along * .2 // 원근으로 커진 왼쪽 카드까지
+          : pos + along > 0 && pos < span;
+        if (c.onScreen) visible.add(c.project);
+        if (!nearest || Math.abs(center) < nearest.d) nearest = { d: Math.abs(center), project: c.project };
+      }
+
+      // 2) hover 판정 (마우스 아래 카드)
+      const canHover = gl && pointer.inside && !drag.moved && !overlayOpen && !reduceMotion;
+      const hit = canHover ? pickCard(pointer.x, pointer.y) : null;
+      hovered = hit?.card ?? null;
+      stage.classList.toggle('is-pointing', !!hovered);
+
+      // 3) 카드 장면 그리기 (보이는 프로젝트만)
+      const sceneTime = reduceMotion ? 5.6 : elapsed;
+      visible.forEach(i => {
+        const canvas = sceneCanvases[i];
+        PROJECTS[i].scene().draw(canvas.ctx, sceneTime);
+        drawLabel(canvas.ctx, canvas.width, canvas.height, PROJECTS[i]);
+        if (textures[i]) textures[i].needsUpdate = true;
+      });
+
+      // 4) WebGL 유니폼 또는 평면 대체 화면
+      for (const c of cards) {
+        const order = clamp((c.pos + c.along / 2) / span);
+        const alpha = easeOut(prog(elapsed, .2 + order * .6, 1));
+
+        if (c.mesh) {
+          // hover: 가운데가 뒤로 움푹 — 들어갈 때 0.7초, 나올 때 0.5초 (expo out)
+          const h = c.hover;
+          const to = c === hovered ? 1 : 0;
+          if (h.to !== to) Object.assign(h, { from: h.value, to, t0: elapsed });
+          const dur = to ? .7 : .5;
+          h.value = lerp(h.from, h.to, expoOut(prog(elapsed, h.t0, dur)));
+
+          c.mesh.visible = c.onScreen;
+          const u = c.mesh.material.uniforms;
+          u.uRect.value.set(c.rect.left, c.rect.top, c.rect.w, c.rect.h);
+          u.uHover.value = h.value;
+          u.uAlpha.value = alpha;
+        } else {
+          c.el.style.visibility = c.onScreen ? 'visible' : 'hidden';
+          if (!c.onScreen) continue;
+          c.el.style.width = `${c.rect.w}px`;
+          c.el.style.height = `${c.rect.h}px`;
+          c.el.style.transform = `translate3d(${c.rect.left}px, ${c.rect.top}px, 0)`;
+          c.el.style.opacity = String(alpha * (1 - motion.dim * .8));
+          const src = sceneCanvases[c.project];
+          if (c.canvas.width !== src.width) {
+            c.canvas.width = src.width;
+            c.canvas.height = src.height;
+          }
+          c.canvas.getContext('2d').drawImage(src, 0, 0);
+        }
+      }
+
+      if (gl) {
+        const fu = gl.floor.material.uniforms;
+        fu.uOffset.value = -motion.scroll;
+        fu.uDim.value = motion.dim;
+        fu.uAlpha.value = easeOut(prog(elapsed, 0, 1.6));
+        gl.shared.uVel.value = motion.smoothVel;
+        gl.shared.uDim.value = motion.dim;
+        gl.renderer.render(gl.scene, gl.camera);
+      }
+
+      if (nearest && nowLabel.dataset.project !== String(nearest.project)) {
+        const p = PROJECTS[nearest.project];
+        nowLabel.dataset.project = nearest.project;
+        nowLabel.innerHTML = `<b>${p.title}</b><span>${String(nearest.project + 1).padStart(2, '0')} / ${String(PROJECTS.length).padStart(2, '0')}</span>`;
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    // ---------- 초기화 ----------
+    async function initGL() {
+      const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+
+      // file://로 열면 이미지가 캔버스를 오염(tainted)시켜 WebGL 텍스처로 쓸 수 없어요
+      sceneCanvases[0].ctx.getImageData(0, 0, 1, 1);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 1);
+      glHost.appendChild(renderer.domElement);
+
+      const camera = new THREE.PerspectiveCamera(RIBBON.fov, 1, 1, 20000);
+      const scene = new THREE.Scene();
+      const geometry = new THREE.PlaneGeometry(1, 1, 48, 24);
+      const shared = {
+        uVel: { value: 0 },
+        uAxis: { value: 0 },
+        uViewport: { value: new THREE.Vector2() },
+        uRadius: { value: 20 },
+        uDim: { value: 0 },
+        uSpeed: { value: 0 },
+        uCam: { value: new THREE.Vector3() },
+      };
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(12000, 9000),
+        new THREE.ShaderMaterial({
+          vertexShader: FLOOR_VERT,
+          fragmentShader: FLOOR_FRAG,
+          transparent: true,
+          depthWrite: false,
+          uniforms: {
+            uOffset: { value: 0 },
+            uCell: { value: 150 },
+            uDim: { value: 0 },
+            uAlpha: { value: 0 },
+            uCam: { value: new THREE.Vector3() },
+          },
+        }),
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.z = -3000;
+      floor.renderOrder = -1;
+      scene.add(floor);
+
+      textures = sceneCanvases.map(c => {
+        const tex = new THREE.CanvasTexture(c);
+        tex.minFilter = THREE.LinearFilter;
+        tex.generateMipmaps = false;
+        return tex;
+      });
+
+      gl = { THREE, renderer, camera, scene, geometry, shared, floor };
+    }
+
+    async function init() {
+      const [assets] = await Promise.all([
+        Promise.all(PROJECTS.map(p => Promise.all(IMAGES[p.id].map(loadImage)))),
+        document.fonts.load('500 48px Pretendard').catch(() => {}),
+      ]);
+
+      sceneCanvases = PROJECTS.map((p, i) => {
+        const scene = p.scene();
+        scene.setup(assets[i]);
+        const c = document.createElement('canvas');
+        c.width = scene.w;
+        c.height = scene.h;
+        c.ctx = c.getContext('2d');
+        scene.draw(c.ctx, 0);
+        drawLabel(c.ctx, c.width, c.height, p);
+        return c;
+      });
+
+      try {
+        await initGL();
+      } catch (err) {
+        console.warn('WebGL 효과 없이 표시합니다:', err.message);
+        document.body.classList.add('no-gl');
+        if (location.protocol === 'file:' && !window.PORTFOLIO_IMAGES) {
+          const note = document.createElement('p');
+          note.className = 'label file-note';
+          note.textContent = "3D 효과를 보려면 '이미지 묶기.command'를 한 번 더블클릭해주세요.";
+          document.body.appendChild(note);
+        }
+        gl = null;
+        textures = [];
+      }
+
+      computeLayout();
+      view.copies = 0; // 첫 onResize에서 카드 생성
+      onResize();
+      addEventListener('resize', onResize);
+
+      // 첫 카드가 정면 가운데에 오도록, 오른쪽에서 돌아 들어오는 인트로
+      const first = view.sizes[0];
+      motion.target = view.span / 2 - (view.axis === 'x' ? first.w : first.h) / 2;
+      motion.scroll = motion.target + (reduceMotion ? 0 : view.span * .6);
+
+      started = performance.now();
+      lastFrame = started;
+      requestAnimationFrame(frame);
+    }
+
+    init().catch(err => {
+      const box = document.createElement('p');
+      box.className = 'error';
+      box.textContent = `이미지를 불러오지 못했어요 (${err.message}). index.html과 Img 폴더가 같은 위치에 있는지 확인해주세요.`;
+      document.body.appendChild(box);
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
