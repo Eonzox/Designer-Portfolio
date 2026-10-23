@@ -6,214 +6,7 @@
   <title>Yeon Jung Choi — Product Designer</title>
   <meta name="description" content="Product Designer Yeon Jung Choi 포트폴리오 — ORUM, Pingo, Walla">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <style>
-    :root {
-      --bg: #000;
-      --fg: #fff;
-      --muted: rgba(255, 255, 255, .5);
-      --pad-x: 40px;
-      --pad-y: 28px;
-      --ease: cubic-bezier(.22, 1, .36, 1);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      background: var(--bg);
-      color: var(--fg);
-      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-    a { color: inherit; text-decoration: none; }
-
-    .sr-only {
-      position: absolute; width: 1px; height: 1px; overflow: hidden;
-      clip: rect(0 0 0 0); white-space: nowrap;
-    }
-
-    .label { font-size: 13px; letter-spacing: -.01em; line-height: 1; }
-
-    /* ---------- WebGL 캔버스 ---------- */
-    .gl { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-    .gl canvas { display: block; width: 100%; height: 100%; }
-
-    /* ---------- 입력 레이어 (WebGL 모드에서는 hover·클릭을 3D 원통과의 교차로 판정) ---------- */
-    .stage {
-      position: fixed; inset: 0; z-index: 1;
-      overflow: hidden; touch-action: none;
-      cursor: grab; user-select: none; -webkit-user-select: none;
-    }
-    .stage.is-pointing { cursor: pointer; }
-    .stage.is-dragging { cursor: grabbing; }
-
-    /* WebGL을 쓸 수 없을 때만 보이는 평면 카드 */
-    .card {
-      display: none;
-      position: absolute; left: 0; top: 0;
-      border-radius: 20px;
-      overflow: hidden;
-      cursor: pointer;
-      will-change: transform;
-    }
-    .no-gl .card { display: block; }
-    .card canvas { display: block; width: 100%; height: 100%; }
-
-    /* ---------- 네 모서리 UI ---------- */
-    .ui {
-      position: fixed; inset: 0; z-index: 3;
-      display: flex; flex-direction: column; justify-content: space-between;
-      padding: var(--pad-y) var(--pad-x);
-      pointer-events: none;
-    }
-    .ui__row { position: relative; display: flex; align-items: center; justify-content: space-between; }
-    .ui a, .ui button { pointer-events: auto; transition: opacity .3s ease; }
-    .ui a:hover, .ui button:hover { opacity: .6; }
-    .ui__brand b { font-weight: 600; }
-    .ui__brand span { color: var(--muted); }
-
-    .views { display: flex; gap: 6px; align-items: center; }
-    .views button[aria-pressed="false"] { opacity: .45; }
-    .views button[aria-pressed="false"]:hover { opacity: 1; }
-
-    .ui__now {
-      position: absolute; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 10px; color: var(--muted);
-      white-space: nowrap;
-    }
-    .ui__now b { color: var(--fg); font-weight: 500; }
-
-    /* ---------- 오버레이 (Profile / Index / Project) ---------- */
-    .overlay {
-      position: fixed; inset: 0; z-index: 2;
-      display: grid; place-items: center;
-      padding: 96px 24px;
-      opacity: 0; visibility: hidden;
-      transition: opacity .6s var(--ease), visibility 0s linear .6s;
-    }
-    .overlay.is-open { opacity: 1; visibility: visible; transition: opacity .6s var(--ease); }
-    .overlay__inner {
-      width: 100%; max-width: 520px; text-align: center;
-      transform: translateY(16px); transition: transform .8s var(--ease);
-    }
-    .overlay.is-open .overlay__inner { transform: none; }
-
-    .overlay__lead { font-size: 17px; line-height: 1.6; letter-spacing: -.02em; word-break: keep-all; }
-    .overlay__sub { margin-top: 24px; color: var(--muted); line-height: 1.5; }
-    .overlay__links { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; }
-    .overlay__links a:hover { opacity: .6; }
-
-    /* ---------- 프로젝트 상세 패널 ---------- */
-    .detail { z-index: 5; padding: 20px; place-items: stretch; }
-    .detail__panel {
-      height: 100%;
-      overflow-y: auto; overscroll-behavior: contain;
-      display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px;
-      padding: 64px 120px 96px 64px;
-      border-radius: 20px;
-      background: #fff; color: #0a0a0a;
-      transform: translateY(56px);
-      transition: transform 1s var(--ease);
-    }
-    .detail.is-open .detail__panel { transform: none; }
-
-    .detail__info { position: sticky; top: 0; align-self: start; }
-    .detail__num { color: rgba(0, 0, 0, .4); }
-    .detail__title {
-      margin-top: 16px;
-      font-size: clamp(48px, 6vw, 96px); font-weight: 500; letter-spacing: -.05em; line-height: 1;
-    }
-    .detail__desc {
-      margin-top: 32px; max-width: 26em;
-      font-size: 21px; line-height: 1.5; letter-spacing: -.025em; word-break: keep-all;
-    }
-    .project__link {
-      display: inline-flex; margin-top: 32px; padding: 12px 20px;
-      border-radius: 999px; background: #0a0a0a; color: #fff;
-    }
-    .project__link[hidden] { display: none; }
-
-    .detail__close {
-      position: absolute; top: 44px; right: 44px; z-index: 1;
-      display: grid; place-items: center;
-      width: 56px; height: 56px; border-radius: 50%;
-      background: #0a0a0a; color: #fff;
-      transition: transform .4s var(--ease);
-    }
-    .detail__close:hover { transform: rotate(90deg); }
-    .detail__close:focus { outline: none; }
-    .detail__close:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-
-    /* 이미지가 아래에서 차례로 떠올라요 */
-    /* 대표 이미지 아래는 한 줄에 2장씩 — 짝수로 맞춰 배열 */
-    .detail__media { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
-    .detail__media > * {
-      display: block; width: 100%; height: auto;
-      opacity: 0; transform: translateY(80px);
-      transition: opacity .8s var(--ease), transform 1.1s var(--ease);
-      transition-delay: calc(var(--i) * 90ms + 250ms);
-    }
-    .detail__media--web img { border-radius: 12px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .06); }
-    .detail__media--phone img { border-radius: 28px; }
-    .detail.is-open .detail__media > * { opacity: 1; transform: none; }
-
-    /* 대표 이미지(thumbnail): 프로젝트 색 위에 크게 */
-    .detail__hero {
-      grid-column: 1 / -1;
-      display: grid; place-items: center;
-      padding: 64px 40px;
-      border-radius: 20px;
-      background: var(--hero);
-    }
-    .detail__hero img { width: min(340px, 100%); box-shadow: 0 32px 64px rgba(0, 0, 0, .28); }
-    .detail__media--web .detail__hero { padding: 48px; }
-    .detail__media--web .detail__hero img { width: 100%; box-shadow: 0 24px 56px rgba(0, 10, 50, .35); }
-
-    .index { list-style: none; max-width: 640px; text-align: left; }
-    .index li + li { border-top: 1px solid rgba(255, 255, 255, .15); }
-    .index button {
-      width: 100%; display: grid; grid-template-columns: 40px 120px 1fr; gap: 12px; align-items: baseline;
-      padding: 20px 0; text-align: left; transition: opacity .3s ease;
-    }
-    .index:hover button { opacity: .4; }
-    .index button:hover, .index button:focus-visible { opacity: 1; }
-    .index__num { color: var(--muted); }
-    .index__name { font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
-    .index__desc { color: var(--muted); line-height: 1.5; }
-
-    .error {
-      position: fixed; left: 50%; top: 50%; z-index: 4; transform: translate(-50%, -50%);
-      max-width: 420px; padding: 0 24px; text-align: center; color: var(--muted); line-height: 1.6;
-    }
-
-    .file-note {
-      position: fixed; left: 50%; top: 64px; z-index: 4; transform: translateX(-50%);
-      padding: 10px 16px; border-radius: 999px;
-      background: #fff; color: #000; white-space: nowrap;
-    }
-
-    @media (max-width: 699px) {
-      :root { --pad-x: 16px; --pad-y: 18px; }
-      .ui { background: linear-gradient(#000 0, transparent 64px) top / 100% 64px no-repeat,
-                        linear-gradient(transparent 0, #000 64px) bottom / 100% 64px no-repeat; }
-      .ui__now { display: none; }
-      .index button { grid-template-columns: 32px 1fr; }
-      .index__desc { grid-column: 2; }
-      .detail { padding: 8px; }
-      .detail__panel { grid-template-columns: 1fr; gap: 32px; padding: 88px 20px 48px; border-radius: 16px; }
-      .detail__info { position: static; }
-      .detail__desc { font-size: 17px; margin-top: 20px; }
-      .detail__close { top: 24px; right: 24px; width: 44px; height: 44px; }
-      .detail__media { gap: 12px; }
-      .detail__media--phone img { border-radius: 18px; }
-      .detail__hero { padding: 32px 20px; border-radius: 14px; }
-      .detail__hero img { width: min(240px, 100%); }
-      .detail__media--web .detail__hero { padding: 16px; }
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- 검색엔진·스크린리더용 텍스트 -->
@@ -233,9 +26,9 @@
   <section class="overlay" id="profile" aria-label="Profile" aria-hidden="true" inert>
     <div class="overlay__inner">
       <p class="overlay__lead">
-        사용자의 자리에서 문제를 바라보고, 창의적인 방식으로 답을 찾고,
+        사용자의 자리에서 문제를 바라보고, 창의적인 방식으로 답을 찾고,<br>
         마지막 디테일까지 꼼꼼하게 다듬는<br>
-        Product Designer Yeon Jung Choi입니다.
+        Product Designer 최연정입니다.
       </p>
       <p class="overlay__sub label">UX Research · UI Design · Prototyping</p>
       <div class="overlay__links label">
@@ -254,7 +47,6 @@
     </button>
     <div class="detail__panel">
       <div class="detail__info">
-        <p class="detail__num label"></p>
         <h2 class="detail__title" id="detail-title"></h2>
         <p class="detail__desc"></p>
         <a class="project__link label" hidden>프로젝트 자세히 보기 →</a>
@@ -279,7 +71,7 @@
     </div>
   </div>
 
-  <!-- 웹용으로 줄인 이미지 묶음 — Img 폴더를 바꾸면 '이미지 묶기.command'를 더블클릭해서 다시 만들어요 -->
+  <!-- 웹용으로 줄인 이미지 묶음 — img 폴더를 바꾸면 '이미지 묶기.command'를 더블클릭해서 다시 만들어요 -->
   <script src="assets.js"></script>
   <script type="module">
     // ============================================================
@@ -307,7 +99,7 @@
       {
         id: 'walla',
         title: 'Walla',
-        desc: "설문 폼 'Walla' 서비스 개선 — 주관식 결과 확인 경험 개선",
+        desc: "설문 폼 'Walla' 서비스 개선 - 주관식 결과 확인 경험 개선",
         href: null,
         label: '#fff', arrow: '#1747c9',
         hero: '#2f6bf5',
@@ -317,23 +109,23 @@
 
     const IMAGES = {
       orum: [
-        'Img/ORUM/Thumbnail.png',
-        'Img/ORUM/2-2 암장 정보 · 첫 방문.png',
-        'Img/ORUM/4-1 되돌아보기 · 내 영상 추가 완료.png',
-        'Img/ORUM/가로 레이아웃.png',
-        'Img/ORUM/회원가입.png',
+        'img/orum/thumbnail.png',
+        'img/orum/storeinfo.png',
+        'img/orum/player(2).png',
+        'img/orum/player.png',
+        'img/orum/signup.png',
       ],
       pingo: [
-        'Img/Pingo/목적지 고르기 완료.png',
-        'Img/Pingo/레이스 완료.png',
-        'Img/Pingo/Thumbnail.png', // 가운데 맨 앞 — 대표 화면
-        'Img/Pingo/A1_달려_press.png',
-        'Img/Pingo/레이스 결과 – 4안 다듬기 (합산 지표 히어로 + 힌트 분리).png',
+        'img/pingo/destination.png',
+        'img/pingo/myrecord.png',
+        'img/pingo/thumbnail.png', // 가운데 맨 앞 — 대표 화면
+        'img/pingo/reaction.png',
+        'img/pingo/finalrecord.png',
       ],
       walla: [
-        'Img/Walla/thumbnail.png', // 처음 맨 앞 창 — 대표 화면
-        'Img/Walla/그룹 카드 선택.png',
-        'Img/Walla/1 요약보기.png',
+        'img/walla/thumbnail.png', // 처음 맨 앞 창 — 대표 화면
+        'img/walla/chart.png',
+        'img/walla/main.png',
       ],
     };
 
@@ -1187,7 +979,6 @@
     function openProject(i) {
       const p = PROJECTS[i];
       const el = overlays.project;
-      el.querySelector('.detail__num').textContent = `${String(i + 1).padStart(2, '0')} / ${String(PROJECTS.length).padStart(2, '0')}`;
       el.querySelector('.detail__title').textContent = p.title;
       el.querySelector('.detail__desc').textContent = p.desc;
       const link = el.querySelector('.project__link');
@@ -1278,7 +1069,8 @@
 
       const { axis, sizes, cross, total, span, start } = view;
       // 스크롤 속도(0..1) — 빠를수록 물결이 깊어지고 양 끝이 비틀려요
-      if (gl) gl.shared.uSpeed.value = Math.min(1, Math.abs(motion.smoothVel) / 40);
+      // (첫 진입 때 밀려 들어오는 속도로는 비틀지 않도록 인트로가 끝날 즈음부터 반영해요)
+      if (gl) gl.shared.uSpeed.value = Math.min(1, Math.abs(motion.smoothVel) / 40) * ease(prog(elapsed, 1.2, 1));
 
       // 1) 카드 위치
       const visible = new Set();
@@ -1475,7 +1267,7 @@
     init().catch(err => {
       const box = document.createElement('p');
       box.className = 'error';
-      box.textContent = `이미지를 불러오지 못했어요 (${err.message}). index.html과 Img 폴더가 같은 위치에 있는지 확인해주세요.`;
+      box.textContent = `이미지를 불러오지 못했어요 (${err.message}). index.html과 img 폴더가 같은 위치에 있는지 확인해주세요.`;
       document.body.appendChild(box);
       console.error(err);
     });
